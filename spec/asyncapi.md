@@ -689,26 +689,83 @@ bindings:
 
 
 
+#### <a name="operationsObject"></a>Operations Object
+
+Holds a dictionary with all the [operations](#operation-object) this application MUST implement.
+
+Note: If you're looking for a place to define operations that MAY or MAY NOT be implemented by the application, consider defining them in [`components/operations`](#componentsOperations).
+
+##### Patterned Fields
+
+Field Pattern | Type | Description
+---|:---:|---
+<a name="operationsObjectOperation"></a>{operationId} | [Operation Object](#channelItemObject) \| [Reference Object](#referenceObject) | The operation this application MUST implement. The field name (`operationId`) MUST be a string used to identify the operation in the document where it is defined, and its value is **case-sensitive**. Tools and libraries MAY use the `operationId` to uniquely identify an operation, therefore, it is RECOMMENDED to follow common programming naming conventions.
+
+##### Operations Object Example
+
+```json
+{
+  "onUserSignUp": {
+    "summary": "Action to sign a user up.",
+    "description": "A longer description",
+    "channel": {
+      "$ref": "#/channels/userSignup"
+    },
+    "action": "send",
+    "tags": [
+      { "name": "user" },
+      { "name": "signup" },
+      { "name": "register" }
+    ],
+    "bindings": {
+      "amqp": {
+        "ack": false
+      }
+    },
+    "traits": [
+      { "$ref": "#/components/operationTraits/kafka" }
+    ]
+  }
+}
+```
+
+```yaml
+onUserSignUp:
+  summary: Action to sign a user up.
+  description: A longer description
+  channel:
+    $ref: '#/channels/userSignup'
+  action: send
+  tags:
+    - name: user
+    - name: signup
+    - name: register
+  bindings:
+    amqp:
+      ack: false
+  traits:
+    - $ref: '#/components/operationTraits/kafka'
+```
+
+
 
 
 #### <a name="operationObject"></a>Operation Object
 
-Describes a publish or a subscribe operation. This provides a place to document how and why messages are sent and received.
-
-For example, an operation might describe a chat application use case where a user sends a text message to a group. A publish operation describes messages that are received by the chat application, whereas a subscribe operation describes messages that are sent by the chat application.
+Describes a `send` or a `receive` operation.
 
 ##### Fixed Fields
 
 Field Name | Type | Description
 ---|:---:|---
-<a name="operationObjectOperationId"></a>operationId | `string` | Unique string used to identify the operation. The id MUST be unique among all operations described in the API. The operationId value is **case-sensitive**. Tools and libraries MAY use the operationId to uniquely identify an operation, therefore, it is RECOMMENDED to follow common programming naming conventions.
+<a name="operationObjectAction"></a>action | `string` | **Required**. Allowed values are `send` and `receive`. Use `send` when it's expected that the application will send a message to the given [`channel`](#operationObjectChannel), and `receive` when the application should expect receiving messages from the given [`channel`](#operationObjectChannel).
+<a name="operationObjectChannel"></a>channel | [Reference Object](#referenceObject) | **Required**. A `$ref` pointer to the definition of the channel in which this operation is performed. Please note the `channel` property value MUST be a [Reference Object](#referenceObject) and, therefore, MUST NOT contain a [Channel Object](#channelItemObject). However, it is RECOMMENDED that parsers (or other software) dereference this property for a better development experience.
 <a name="operationObjectSummary"></a>summary | `string` | A short summary of what the operation is about.
 <a name="operationObjectDescription"></a>description | `string` | A verbose explanation of the operation. [CommonMark syntax](https://spec.commonmark.org/) can be used for rich text representation.
 <a name="operationObjectTags"></a>tags | [Tags Object](#tagsObject) | A list of tags for API documentation control. Tags can be used for logical grouping of operations.
 <a name="operationObjectExternalDocs"></a>externalDocs | [External Documentation Object](#externalDocumentationObject) | Additional external documentation for this operation.
 <a name="operationObjectBindings"></a>bindings | [Operation Bindings Object](#operationBindingsObject) \| [Reference Object](#referenceObject) | A map where the keys describe the name of the protocol and the values describe protocol-specific definitions for the operation.
 <a name="operationObjectTraits"></a>traits | [[Operation Trait Object](#operationTraitObject) &#124; [Reference Object](#referenceObject) ] | A list of traits to apply to the operation object. Traits MUST be merged into the operation object using the [JSON Merge Patch](https://tools.ietf.org/html/rfc7386) algorithm in the same order they are defined here.
-<a name="operationObjectMessage"></a>message | [Message Object](#messageObject) &#124; [Reference Object](#referenceObject) &#124; Map["oneOf", [[Message Object](#messageObject) &#124; [Reference Object](#referenceObject)]] | A definition of the message that will be published or received by this operation. Map containing a single `oneOf` key is allowed here to specify multiple messages. However, **a message MUST be valid only against one of the message objects.**
 
 This object can be extended with [Specification Extensions](#specificationExtensions).
 
@@ -716,36 +773,17 @@ This object can be extended with [Specification Extensions](#specificationExtens
 
 ```json
 {
-  "operationId": "registerUser",
   "summary": "Action to sign a user up.",
   "description": "A longer description",
+  "channel": {
+    "$ref": "#/channels/userSignup"
+  },
+  "action": "send",
   "tags": [
     { "name": "user" },
     { "name": "signup" },
     { "name": "register" }
   ],
-  "message": {
-    "headers": {
-      "type": "object",
-      "properties": {
-        "applicationInstanceId": {
-          "description": "Unique identifier for a given instance of the publishing application",
-          "type": "string"
-        }
-      }
-    },
-    "payload": {
-      "type": "object",
-      "properties": {
-        "user": {
-          "$ref": "#/components/schemas/userCreate"
-        },
-        "signup": {
-          "$ref": "#/components/schemas/signup"
-        }
-      }
-    }
-  },
   "bindings": {
     "amqp": {
       "ack": false
@@ -758,27 +796,15 @@ This object can be extended with [Specification Extensions](#specificationExtens
 ```
 
 ```yaml
-operationId: registerUser
 summary: Action to sign a user up.
 description: A longer description
+channel:
+  $ref: '#/channels/userSignup'
+action: send
 tags:
   - name: user
   - name: signup
   - name: register
-message:
-  headers:
-    type: object
-    properties:
-      applicationInstanceId:
-        description: Unique identifier for a given instance of the publishing application
-        type: string
-  payload:
-    type: object
-    properties:
-      user:
-        $ref: "#/components/schemas/userCreate"
-      signup:
-        $ref: "#/components/schemas/signup"
 bindings:
   amqp:
     ack: false
@@ -791,7 +817,7 @@ traits:
 
 #### <a name="operationTraitObject"></a>Operation Trait Object
 
-Describes a trait that MAY be applied to an [Operation Object](#operationObject). This object MAY contain any property from the [Operation Object](#operationObject), except `message` and `traits`.
+Describes a trait that MAY be applied to an [Operation Object](#operationObject). This object MAY contain any property from the [Operation Object](#operationObject), except the `message` and `traits` ones.
 
 If you're looking to apply traits to a message, see the [Message Trait Object](#messageTraitObject).
 
@@ -799,7 +825,8 @@ If you're looking to apply traits to a message, see the [Message Trait Object](#
 
 Field Name | Type | Description
 ---|:---:|---
-<a name="operationTraitObjectOperationId"></a>operationId | `string` | Unique string used to identify the operation. The id MUST be unique among all operations described in the API. The operationId value is **case-sensitive**. Tools and libraries MAY use the operationId to uniquely identify an operation, therefore, it is RECOMMENDED to follow common programming naming conventions.
+<a name="operationTraitObjectAction"></a>action | `string` | Allowed values are `send` and `receive`. Use `send` when it's expected that the application will send a message to the given [`channel`](#operationObjectChannel), and `receive` when the application should expect receiving messages from the given [`channel`](#operationObjectChannel).
+<a name="operationTraitObjectChannel"></a>channel | [Reference Object](#referenceObject) | A `$ref` pointer to the definition of the channel in which this operation is performed. Please note the `channel` property value MUST be a [Reference Object](#referenceObject) and, therefore, MUST NOT contain a [Channel Object](#channelItemObject). However, it is RECOMMENDED that parsers (or other software) dereference this property for a better development experience.
 <a name="operationTraitObjectSummary"></a>summary | `string` | A short summary of what the operation is about.
 <a name="operationTraitObjectDescription"></a>description | `string` | A verbose explanation of the operation. [CommonMark syntax](https://spec.commonmark.org/) can be used for rich text representation.
 <a name="operationTraitObjectTags"></a>tags | [Tags Object](#tagsObject) | A list of tags for API documentation control. Tags can be used for logical grouping of operations.
@@ -1440,6 +1467,7 @@ Field Name | Type | Description
 <a name="componentsSchemas"></a> schemas | Map[`string`, [Schema Object](#schemaObject) \| [Reference Object](#referenceObject)] | An object to hold reusable [Schema Objects](#schemaObject).
 <a name="componentsServers"></a> servers | Map[`string`, [Server Object](#serverObject) \| [Reference Object](#referenceObject)] | An object to hold reusable [Server Objects](#serverObject).
 <a name="componentsChannels"></a> channels | Map[`string`, [Channel Item Object](#channelItemObject)] | An object to hold reusable [Channel Item Objects](#channelItemObject).
+<a name="componentsOperations"></a> operations | Map[`string`, [Operation Item Object](#operationObject) \| [Reference Object](#referenceObject)] | An object to hold reusable [Operation Item Objects](#operationObject).
 <a name="componentsMessages"></a> messages | Map[`string`, [Message Object](#messageObject) \| [Reference Object](#referenceObject)] | An object to hold reusable [Message Objects](#messageObject).
 <a name="componentsSecuritySchemes"></a> securitySchemes| Map[`string`, [Security Scheme Object](#securitySchemeObject) \| [Reference Object](#referenceObject)] | An object to hold reusable [Security Scheme Objects](#securitySchemeObject).
 <a name="componentsParameters"></a> parameters | Map[`string`, [Parameter Object](#parameterObject) \| [Reference Object](#referenceObject)] | An object to hold reusable [Parameter Objects](#parameterObject).
